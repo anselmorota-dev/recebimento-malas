@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recebimento de Malas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#EEF1EF; --surface:#FFFFFF; --ink:#1C2826; --muted:#5E6B68; --line:#CFD6D3;
+  --kraft:#A87A3D; --kraft-soft:#F3E8D8; --stamp:#2A4A94; --stamp-ink:#FFFFFF;
+  --ok:#2F7A4B; --err:#B3261E;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#141A19; --surface:#1D2523; --ink:#E6ECEA; --muted:#9AA7A4; --line:#33403D;
+    --kraft:#D4A566; --kraft-soft:#2E261B; --stamp:#7E9BE0; --stamp-ink:#0F1730;
+    --ok:#6CC28C; --err:#F2948D;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#141A19; --surface:#1D2523; --ink:#E6ECEA; --muted:#9AA7A4; --line:#33403D;
+  --kraft:#D4A566; --kraft-soft:#2E261B; --stamp:#7E9BE0; --stamp-ink:#0F1730;
+  --ok:#6CC28C; --err:#F2948D;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 "Barlow",system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:520px;margin:0 auto;padding:12px 14px 32px}
+button,input,label{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:6px 2px 12px;border-bottom:3px solid var(--kraft);margin-bottom:14px}
+h1{font:700 1.75rem/1.05 "Barlow Condensed","Arial Narrow",sans-serif;margin:0;letter-spacing:.01em}
+header p{margin:4px 0 0;color:var(--muted);font-size:.95rem}
+.count{text-align:right;font:600 1.6rem/1 "Barlow Condensed","Arial Narrow",sans-serif;color:var(--kraft);white-space:nowrap}
+.count small{display:block;font:500 .8rem/1.2 "Barlow",sans-serif;color:var(--muted)}
+form{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 14px 0}
+.field{margin-bottom:16px}
+label{display:block;font-weight:600;margin-bottom:6px;font-size:1.05rem}
+input[type=text],input[type=date]{display:block;width:100%;font:inherit;font-size:17px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-height:54px;scroll-margin-top:12px}
+input[type=date]{-webkit-appearance:none;appearance:none;text-align:left}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
+input:focus-visible,button:focus-visible,.photo:focus-within{outline:3px solid var(--stamp);outline-offset:2px}
+.row{display:block}
+.combo{position:relative}
+.opts{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;max-height:min(45vh,320px);-webkit-overflow-scrolling:touch;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);list-style:none;margin:0;padding:4px 0;border-top:1px solid var(--line)}
+.opts li{display:block;padding:13px 14px;cursor:pointer;border:0;line-height:1.3;font-size:1rem}
+.opts li[aria-selected="true"],.opts li:hover{background:var(--kraft-soft)}
+.opts li small{display:block;color:var(--muted);font-size:.8rem}
+.opts li.sep{border-top:1px solid var(--line)}
+.opts mark{background:none;color:var(--stamp);font-weight:600}
+.hint.warn{color:var(--kraft)}
+@media (max-width:480px){.row{grid-template-columns:1fr}}
+.photo{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;min-height:190px;border:2px dashed var(--kraft);border-radius:10px;background:var(--kraft-soft);cursor:pointer;text-align:center;padding:16px;overflow:hidden}
+.photo input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.photo strong{font-size:1.05rem}
+.photo span{color:var(--muted);font-size:.9rem}
+.photo img{max-width:100%;max-height:260px;border-radius:6px;display:block}
+.photo.has img{margin-bottom:4px}
+.hint{color:var(--muted);font-size:.85rem;margin-top:6px}
+.error{color:var(--err);font-size:.9rem;margin-top:6px;min-height:0}
+button{font:600 1rem "Barlow",sans-serif;border-radius:8px;cursor:pointer;min-height:48px;padding:0 18px}
+.primary{width:100%;background:var(--stamp);color:var(--stamp-ink);border:0;font-size:1.15rem;min-height:56px;border-radius:12px}
+.acao{position:sticky;bottom:0;z-index:10;margin:0 -14px;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--line);border-radius:0 0 12px 12px}
+.primary:disabled{opacity:.6;cursor:progress}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.status{margin:8px 0 0;font-size:.95rem;min-height:0}
+.status:empty{display:none}
+.status.ok{color:var(--ok)} .status.err{color:var(--err)}
+section{margin-top:32px}
+.list-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+h2{font:700 1.4rem/1.1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0}
+.list-head{flex-direction:column;align-items:stretch}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tools input{flex:1 1 140px;width:auto;min-height:48px;padding:8px 12px}
+.tools button{flex:0 0 auto}
+.tools button{min-height:44px}
+ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+li{display:grid;grid-template-columns:60px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.thumb{width:60px;height:60px;border-radius:6px;object-fit:cover;background:var(--kraft-soft);border:1px solid var(--line);cursor:zoom-in;padding:0}
+.thumb img{width:100%;height:100%;object-fit:cover;border-radius:5px;display:block}
+.who{font-weight:600}
+.meta{color:var(--muted);font-size:.9rem}
+.del{background:none;border:0;color:var(--muted);min-height:40px;padding:0 8px;font-size:.9rem}
+.del:hover{color:var(--err)}
+.empty{color:var(--muted);padding:20px 0}
+dialog{border:0;border-radius:10px;padding:0;max-width:min(94vw,900px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.7)}
+dialog img{display:block;max-width:100%;max-height:80vh}
+dialog .bar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px}
+@media (prefers-reduced-motion:no-preference){.status.ok{animation:pop .35s ease-out}}
+@keyframes pop{from{transform:translateY(4px);opacity:0}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Recebimento de Malas</h1>
+      <p>Laboratório HVI · Lucas do Rio Verde</p>
+    </div>
+    <div class="count" id="countToday">–<small>hoje</small></div>
+  </header>
+
+  <form id="form" novalidate>
+    <div class="field">
+      <label for="algodoeira">Algodoeira</label>
+      <div class="combo">
+        <input type="text" id="algodoeira" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="opAlg" autocomplete="off" required placeholder="Comece a digitar o nome">
+        <ul class="opts" id="opAlg" role="listbox" hidden></ul>
+      </div>
+      <div class="hint" id="avisoAlg"></div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="produtor">Produtor</label>
+        <div class="combo">
+          <input type="text" id="produtor" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="opProd" autocomplete="off" required placeholder="Comece a digitar o nome">
+          <ul class="opts" id="opProd" role="listbox" hidden></ul>
+        </div>
+        <div class="hint" id="avisoProd"></div>
+      </div>
+      <div class="field">
+        <label for="data">Data</label>
+        <input type="date" id="data" required>
+      </div>
+    </div>
+    <div class="field">
+      <span id="fotoLabel" style="display:block;font-weight:600;margin-bottom:6px">Foto do protocolo</span>
+      <label class="photo" id="photoBox" aria-labelledby="fotoLabel">
+        <input type="file" id="foto" accept="image/*" capture="environment" aria-labelledby="fotoLabel">
+        <strong>Tirar foto ou escolher imagem</strong>
+        <span>Fotografe o protocolo inteiro, com boa luz</span>
+      </label>
+    </div>
+    <div class="error" id="formError" role="alert"></div>
+    <div class="acao">
+      <button class="primary" type="submit" id="salvar">Salvar recebimento</button>
+      <p class="status" id="status" aria-live="polite"></p>
+    </div>
+  </form>
+
+  <section>
+    <div class="list-head">
+      <h2>Enviados neste aparelho</h2>
+    </div>
+    <ul id="lista"><li class="empty" style="display:block">Os recebimentos que você enviar por este celular aparecem aqui.</li></ul>
+  </section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const fmt = iso => { if(!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// Cadastro extraído do StatusOS-HVI (Usina → Clientes, mais frequentes primeiro)
+const CADASTRO = {"AGROPECUARIA MAP": ["ARI WALDIR ZANCCHETIN", "CLAUDIO ANTÔNIO SQUINZANI CARGNELUTTI", "HENRIQUE LAWISCH CARGNELUTTI"], "ALGODOEIRA AGROVERA - PORTO DOS GAÚCHOS": ["BOA ESPERANÇA - AGROVERA porto", "BOA ESPERANÇA - ALGODOEIRA ELDORADO"], "ALGODOEIRA IPIRANGA DO NORTE": ["BOA ESPERANÇA - ALGODOEIRA ELDORADO", "BOA ESPERANÇA - IPIRANGA DO NORTE"], "ALGODOEIRA LAZAROTTO": ["JOÃO LUIZ LAZAROTTO"], "ALGODOEIRA MANO JULIO": ["MANO JULIO - MARINO JOSÉ FRANZ"], "ALGODOEIRA MARAPÊ": ["JOSÉ ALTAIR LAZAROTTO - GRUPO LAZARROTO"], "ALGODOEIRA SANTA VITÓRIA": ["EDUARDO PICCINI E OUTROS"], "Algodoeira Eldorado - Tapurah": ["BOA ESPERANÇA- FAZ. NOSSA SENHORA APARECIDA", "BOA ESPERANÇA AGROPECUÁRIA LTDA (MATRIZ)", "BOA ESPERANÇA LUCAS", "BOA ESPERANÇA - Cedro"], "Algodoeira Rio Verde": ["BOA ESPERANÇA - QUATRILHO", "REONILDO DANIEL PRANTE", "BOA ESPERANÇA LUCAS", "BOA ESPERANÇA - Cedro", "BOA ESPERANÇA AGROPECUÁRIA LTDA (MATRIZ)", "BOA ESPERANÇA - ALGODOEIRA ELDORADO"], "COTTON JORGE": ["JORGE MEINERZ", "MANO JULIO - PAULO SERGIO FRANZ", "MARIO ROQUE LUPATINI E OUTROS", "LINO JOSE AMBIEL", "ROBERTO PUZISKI", "MANO JULIO - MARINO JOSÉ FRANZ"], "CT.COTTON": ["MILTON ANTONIO TREVELIN", "JOÃO PAULO CECONELLO", "JULIO CINPAK"], "DONA AUGUSTA": ["DOUGLAS RENO DALLAN", "MARIA LUCIA BEDIN MARTELLI"], "EXCELÊNCIA AGROINDÚSTRIA": ["EVANDRO ROBERTO CORTEZIA"], "FAZENDA SANTO INÁCIO": ["MARCIELE DENISE BORTOLINI SMANIOTTO", "LUIZ ALBERTO BORTOLI", "DELIR NADIN E OUTRO", "JAIME COELHO", "ORELIO LUPATINI E ESPOSA", "LUIZ HENRIQUE BURILE"], "FAZENDA SÃO VICENTE": ["ADAIR VENDRUSCOLO"], "GFO COTTON": ["AMILTON JOSÉ OLIVEIRA", "SILVIO MANFROI", "GUILHERME ALOISIO ELY"], "GMS COTTON": ["CIRLEI ANA FAVARETTO SMANIOTTO E OUTROS"], "IB COTTON": ["FABIO RAFAEL BARZOTTO", "VAGNER LUIZ GAIATTO", "LINO JOSE AMBIEL"], "LUCAS COTTON - MATRIZ": ["CLAUDIO ANTÔNIO SQUINZANI CARGNELUTTI"], "ONSX COTTON": ["GIORGIO NAVA", "VOLMIR ANTÔNIO DELLALIBERA ALVES XAVIER", "CARLOS ALBERTO SIMON", "AMILTON JOSÉ OLIVEIRA", "Fabio Henrique Oliveira", "LUIZ CARLOS NAVA"], "S COTTON - LUCAS DO RIO VERDE": ["PEDRO MARCOS SPANHOL", "MIGUEL VAZ RIBEIRO", "NELEI JOSÉ KRAEMER", "JOSE EMILIO AMBIEL", "OLIDEN JOSE MARTELLI E OUTROS", "FERNANDO LUIS STOFFEL"], "S COTTON - TABAPORÃ": ["MIGUEL VAZ RIBEIRO"], "SANTO ANTÔNIO COTTON": ["LEANDRO MIGUEL HOFFMANN", "ODIR ANTONIO GRENDENE", "IGOR BIANCON E OUTROS", "VANDERLEI ANTÔNIO DE OLIVEIRA", "IVONEI SCOPEL", "MARIO ROQUE LUPATINI E OUTROS", "ANDRE PELLE", "ARI WALDIR ZANCCHETIN"], "SCH COTTON - SCHANTZ": ["SÍLVIO CÉSAR SCHANTZ", "HELMUTE AUGUSTO LAWISH", "ANDRE PELLE", "GUSTAVO LAWISCH SCHANTZ"], "TIRLONI COTTON": ["TIRLONI COTTON"]};
+const norm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+const ALG_POR_NORM = Object.fromEntries(Object.keys(CADASTRO).map(k => [norm(k), k]));
+const TODOS_PROD = [...new Set(Object.values(CADASTRO).flat())];
+const PROD_POR_NORM = Object.fromEntries(TODOS_PROD.map(k => [norm(k), k]));
+
+function realce(v, q){
+  if(!q) return esc(v);
+  const chars = [...v];
+  const n = chars.map(c => c.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()).join('');
+  const i = n.indexOf(q);
+  if(i < 0) return esc(v);
+  return esc(chars.slice(0,i).join('')) + '<mark>' + esc(chars.slice(i,i+q.length).join('')) + '</mark>' + esc(chars.slice(i+q.length).join(''));
+}
+
+function combo(input, list, getOptions, onPick){
+  let items = [], active = -1;
+  const mark = () => {
+    [...list.children].forEach((li,i) => li.setAttribute('aria-selected', i === active ? 'true' : 'false'));
+    if(active >= 0){ input.setAttribute('aria-activedescendant', list.id + '-' + active); list.children[active].scrollIntoView({block:'nearest'}); }
+  };
+  const close = () => { list.hidden = true; input.setAttribute('aria-expanded','false'); input.removeAttribute('aria-activedescendant'); active = -1; };
+  const open = () => {
+    const q = norm(input.value);
+    const opts = getOptions();
+    items = (q ? opts.filter(o => norm(o.v).includes(q)) : opts);
+    if(q){ const st = items.filter(o => norm(o.v).startsWith(q)); items = [...st, ...items.filter(o => !st.includes(o))]; }
+    items = items.slice(0, 50);
+    if(!items.length || (items.length === 1 && norm(items[0].v) === q)){ close(); return; }
+    list.innerHTML = items.map((o,i) => `<li role="option" id="${list.id}-${i}" data-i="${i}" class="${o.sep ? 'sep' : ''}">${realce(o.v, q)}${o.tag ? `<small>${esc(o.tag)}</small>` : ''}</li>`).join('');
+    list.hidden = false; input.setAttribute('aria-expanded','true'); active = -1;
+  };
+  const pick = i => { input.value = items[i].v; close(); onPick && onPick(items[i].v); };
+  input.addEventListener('input', open);
+  input.addEventListener('focus', () => { open(); if(window.matchMedia('(max-width: 700px)').matches) setTimeout(() => input.scrollIntoView({block:'start', behavior:'smooth'}), 300); });
+  input.addEventListener('keydown', e => {
+    if(list.hidden){ if(e.key === 'ArrowDown'){ open(); e.preventDefault(); } return; }
+    if(e.key === 'ArrowDown'){ active = Math.min(active + 1, items.length - 1); mark(); e.preventDefault(); }
+    else if(e.key === 'ArrowUp'){ active = Math.max(active - 1, 0); mark(); e.preventDefault(); }
+    else if(e.key === 'Enter' && active >= 0){ pick(active); e.preventDefault(); }
+    else if(e.key === 'Escape'){ close(); }
+  });
+  list.addEventListener('mousedown', e => { const li = e.target.closest('li'); if(li){ e.preventDefault(); pick(+li.dataset.i); } });
+  input.addEventListener('blur', () => setTimeout(() => { close(); onPick && onPick(input.value, true); }, 120));
+}
+
+function algodoeirasConhecidas(){
+  return Object.keys(CADASTRO).sort((a,b) => a.localeCompare(b,'pt-BR'));
+}
+function produtoresDe(alg){
+  const k = ALG_POR_NORM[norm(alg)];
+  const cad = k ? CADASTRO[k] : [];
+  return cad;
+}
+
+combo($('#algodoeira'), $('#opAlg'), () => algodoeirasConhecidas().map(v => ({v})), (v, blur) => {
+  const k = ALG_POR_NORM[norm(v)];
+  if(k && v !== k) $('#algodoeira').value = k;
+  const aviso = $('#avisoAlg');
+  if(v.trim() && !k){ aviso.textContent = 'Algodoeira fora do cadastro. Confira a grafia antes de salvar.'; aviso.className = 'hint warn'; }
+  else { aviso.textContent = ''; aviso.className = 'hint'; }
+  if(!blur && k){
+    const prods = produtoresDe(k);
+    if(prods.length === 1 && !$('#produtor').value.trim()){ $('#produtor').value = prods[0]; checarProdutor(); }
+    else if(!$('#produtor').value.trim()) $('#produtor').focus();
+  }
+});
+
+function checarProdutor(){
+  const v = $('#produtor').value;
+  const k = PROD_POR_NORM[norm(v)];
+  if(k && v !== k) $('#produtor').value = k;
+  const aviso = $('#avisoProd');
+  const conhecido = k;
+  const alg = $('#algodoeira').value;
+  if(v.trim() && !conhecido){ aviso.textContent = 'Produtor fora do cadastro. Confira a grafia antes de salvar.'; aviso.className = 'hint warn'; }
+  else if(v.trim() && alg.trim() && ALG_POR_NORM[norm(alg)] && !produtoresDe(alg).some(p => norm(p) === norm(v))){ aviso.textContent = 'Este produtor ainda não tem OS nesta algodoeira.'; aviso.className = 'hint warn'; }
+  else { aviso.textContent = ''; aviso.className = 'hint'; }
+}
+combo($('#produtor'), $('#opProd'), () => {
+  const alg = $('#algodoeira').value;
+  const daAlg = alg.trim() ? produtoresDe(alg) : [];
+  const resto = [...TODOS_PROD].filter(p => !daAlg.includes(p)).sort((a,b) => a.localeCompare(b,'pt-BR'));
+  return [
+    ...daAlg.map((v,i) => ({v, tag: i === 0 ? 'Desta algodoeira' : ''})),
+    ...resto.map((v,i) => ({v, sep: i === 0 && daAlg.length > 0, tag: i === 0 && daAlg.length ? 'Outros produtores' : ''}))
+  ];
+}, () => checarProdutor());
+
+
+const SUPA_URL = 'https://yfdwymbcnwatzhnngcgv.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmZHd5bWJjbndhdHpobm5nY2d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxNTQ4MTYsImV4cCI6MjEwNDczMDgxNn0.8BuI3oxwRnvvp7O2LRZ4p1bqEIm6Ruw8MySqXAFRPtE';
+const H = { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY };
+
+let fotoBlob = null;
+$('#data').value = hoje();
+
+function setStatus(msg, kind){ const s = $('#status'); s.textContent = msg; s.className = 'status' + (kind ? ' ' + kind : ''); }
+
+$('#foto').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  const box = $('#photoBox');
+  if(!file){ fotoBlob = null; return; }
+  box.querySelectorAll('img').forEach(i => i.remove());
+  fotoBlob = await comprimir(file);
+  const img = document.createElement('img');
+  img.alt = 'Pré-visualização do protocolo';
+  img.src = URL.createObjectURL(fotoBlob);
+  box.prepend(img);
+  box.classList.add('has');
+  box.querySelector('strong').textContent = 'Trocar foto';
+  $('#formError').textContent = '';
+});
+
+async function comprimir(file){
+  try{
+    const bmp = await createImageBitmap(file);
+    const max = 1800, s = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise(r => c.toBlob(b => r(b || file), 'image/jpeg', 0.82));
+  }catch{ return file; }
+}
+
+function resetFoto(){
+  fotoBlob = null; $('#foto').value = '';
+  const box = $('#photoBox');
+  box.querySelectorAll('img').forEach(i => i.remove());
+  box.classList.remove('has');
+  box.querySelector('strong').textContent = 'Tirar foto ou escolher imagem';
+}
+
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+async function enviarFoto(blob){
+  const tipo = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
+  const ext = tipo === 'image/png' ? 'png' : tipo === 'image/webp' ? 'webp' : 'jpg';
+  const caminho = `protocolos/${hoje()}/${uuid()}.${ext}`;
+  const r = await fetch(`${SUPA_URL}/storage/v1/object/protocolos-malas/${caminho}`, {
+    method: 'POST', headers: { ...H, 'Content-Type': tipo, 'x-upsert': 'false' }, body: blob
+  });
+  if(!r.ok) throw new Error('foto ' + r.status);
+  return caminho;
+}
+
+async function salvarRegistro(reg){
+  const r = await fetch(`${SUPA_URL}/rest/v1/recebimento_malas`, {
+    method: 'POST', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(reg)
+  });
+  if(!r.ok) throw new Error('registro ' + r.status);
+}
+
+async function atualizarContador(){
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/contar_malas_dia`, {
+      method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ dia: hoje() })
+    });
+    if(r.ok){ const n = await r.json(); $('#countToday').firstChild.textContent = String(n); }
+  }catch{}
+}
+
+// Histórico local (só deste aparelho)
+const CHAVE = 'recebimento-malas-enviados';
+function lerLocal(){ try{ return JSON.parse(localStorage.getItem(CHAVE) || '[]'); }catch{ return []; } }
+function gravarLocal(lista){ try{ localStorage.setItem(CHAVE, JSON.stringify(lista.slice(0, 30))); }catch{} }
+function renderLocal(){
+  const itens = lerLocal();
+  const ul = $('#lista');
+  if(!itens.length){ ul.innerHTML = '<li class="empty" style="display:block">Os recebimentos que você enviar por este celular aparecem aqui.</li>'; return; }
+  ul.innerHTML = itens.map(r => `
+    <li style="grid-template-columns:1fr auto">
+      <div><div class="who">${esc(r.algodoeira)}</div><div class="meta">${esc(r.produtor)} · ${fmt(r.data)}</div></div>
+      <span class="meta">${esc(r.hora)}</span>
+    </li>`).join('');
+}
+
+$('#form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const algodoeira = $('#algodoeira').value.trim();
+  const produtor = $('#produtor').value.trim();
+  const data = $('#data').value;
+  const faltando = [];
+  if(!algodoeira) faltando.push('algodoeira');
+  if(!produtor) faltando.push('produtor');
+  if(!data) faltando.push('data');
+  if(!fotoBlob) faltando.push('foto do protocolo');
+  if(faltando.length){ $('#formError').textContent = 'Preencha: ' + faltando.join(', ') + '.'; return; }
+  $('#formError').textContent = '';
+
+  const btn = $('#salvar'); btn.disabled = true; btn.textContent = 'Enviando…'; setStatus('');
+  try{
+    const foto_path = await enviarFoto(fotoBlob);
+    await salvarRegistro({ algodoeira, produtor, data, foto_path });
+    const lista = lerLocal();
+    lista.unshift({ algodoeira, produtor, data, hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) });
+    gravarLocal(lista); renderLocal();
+    setStatus(`Recebimento salvo: ${algodoeira} · ${produtor} · ${fmt(data)}`, 'ok');
+    $('#produtor').value = ''; $('#avisoProd').textContent = '';
+    resetFoto();
+    atualizarContador();
+  }catch(err){
+    setStatus(navigator.onLine === false ? 'Sem internet. Conecte o celular e toque em Salvar de novo; os dados continuam preenchidos.' : 'Não foi possível salvar. Toque em Salvar de novo; os dados continuam preenchidos.', 'err');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Salvar recebimento';
+  }
+});
+
+renderLocal();
+atualizarContador();
+</script>
+</body>
+</html>
