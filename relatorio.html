@@ -250,8 +250,9 @@ async function carregar(){
 async function abrir(){
   $('#telaLogin').hidden = true; $('#telaRel').hidden = false;
   if(!$('#fDe').value){ const h = hoje(); $('#fDe').value = h.slice(0,8) + '01'; $('#fAte').value = h; }
+  const foto = new URLSearchParams(location.search).get('foto');
+  if(foto){ try{ await abrirFoto(foto); }catch{ $('#erroRel').textContent = 'Não foi possível abrir a foto do link.'; } }
   await carregar();
-  if(!sessao) return;
 }
 
 $('#btnFiltrar').addEventListener('click', carregar);
@@ -261,21 +262,27 @@ $('#fAlg').addEventListener('change', () => { $('#fProd').value = ''; render(); 
 $('#fProd').addEventListener('change', render);
 
 // ---------- foto ----------
-$('#tReg').addEventListener('click', async e => {
-  const b = e.target.closest('button[data-i]'); if(!b) return;
-  const r = visiveis[+b.dataset.i];
-  b.textContent = 'Abrindo…';
-  try{
-    const res = await api(`${SUPA_URL}/storage/v1/object/sign/protocolos-malas/${r.foto_path.split('/').map(encodeURIComponent).join('/')}`, {
+async function abrirFoto(caminho){
+  if(!/^protocolos\/[\w\-\/.]+$/.test(caminho) || caminho.includes('..')) throw new Error('caminho inválido');
+  {
+    const res = await api(`${SUPA_URL}/storage/v1/object/sign/protocolos-malas/${caminho.split('/').map(encodeURIComponent).join('/')}`, {
       method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ expiresIn: 600 })
     });
     if(!res.ok) throw new Error();
     const j = await res.json();
     $('#viewerImg').src = SUPA_URL + '/storage/v1' + j.signedURL;
     $('#viewer').hidden = false;
-  }catch{ $('#erroRel').textContent = 'Não foi possível abrir a foto.'; }
+  }
+}
+$('#tReg').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-i]'); if(!b) return;
+  b.textContent = 'Abrindo…';
+  try{ await abrirFoto(visiveis[+b.dataset.i].foto_path); }
+  catch{ $('#erroRel').textContent = 'Não foi possível abrir a foto.'; }
   finally{ b.textContent = 'Ver foto'; }
 });
+// Link permanente da foto (usado no Excel): abre esta página, pede login e mostra o protocolo
+const linkFoto = caminho => location.origin + location.pathname + '?foto=' + encodeURIComponent(caminho);
 $('#viewerFechar').addEventListener('click', () => { $('#viewer').hidden = true; $('#viewerImg').removeAttribute('src'); });
 $('#viewer').addEventListener('click', e => { if(e.target.id === 'viewer') $('#viewerFechar').click(); });
 
@@ -284,9 +291,11 @@ $('#btnExcel').addEventListener('click', () => {
   if(!window.XLSX){ $('#erroRel').textContent = 'Biblioteca do Excel não carregou. Verifique a internet e recarregue.'; return; }
   const f = filtros();
   const wb = XLSX.utils.book_new();
-  const regs = visiveis.map(r => ({ Data: fmt(r.data), Hora: hora(r.criado_em), Algodoeira: r.algodoeira, Produtor: r.produtor, 'Arquivo da foto': r.foto_path }));
+  const regs = visiveis.map(r => ({ Data: fmt(r.data), Hora: hora(r.criado_em), Algodoeira: r.algodoeira, Produtor: r.produtor, 'Link da foto': linkFoto(r.foto_path) }));
   const add = (nome, linhas, larg) => { const ws = XLSX.utils.json_to_sheet(linhas); ws['!cols'] = larg.map(w => ({ wch: w })); XLSX.utils.book_append_sheet(wb, ws, nome); };
-  add('Registros', regs, [12, 8, 40, 48, 60]);
+  add('Registros', regs, [12, 8, 40, 48, 18]);
+  const wr = wb.Sheets['Registros'];
+  regs.forEach((r, i) => { const c = wr['E' + (i + 2)]; if(c){ c.v = 'Abrir foto'; c.l = { Target: r['Link da foto'], Tooltip: 'Abre a foto (pede login)' }; } });
   add('Por algodoeira', contar(visiveis,'algodoeira').sort((a,b) => b[1]-a[1]).map(([k,n]) => ({ Algodoeira: k, Malas: n })), [40, 10]);
   add('Por produtor', contar(visiveis,'produtor').sort((a,b) => b[1]-a[1]).map(([k,n]) => ({ Produtor: k, Malas: n })), [48, 10]);
   add('Por dia', contar(visiveis,'data').sort((a,b) => cmp(a[0],b[0])).map(([k,n]) => ({ Data: fmt(k), Malas: n })), [12, 10]);
