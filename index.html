@@ -60,8 +60,15 @@ input:focus-visible,button:focus-visible,.photo:focus-within{outline:3px solid v
 .photo{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;min-height:150px;border:2px dashed var(--kraft);border-radius:10px;background:var(--kraft-soft);cursor:pointer;text-align:center;padding:16px;overflow:hidden}
 .pbtns{display:flex;gap:8px;width:100%;flex-wrap:wrap}
 .pbtn{position:relative;flex:1 1 140px;display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:10px;background:var(--kraft);color:#fff;font-weight:600;cursor:pointer;margin:0;font-size:1rem}
+.pbtn{border:0;font-family:inherit}
 .pbtn.alt{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
 .pbtn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+#camOv{position:fixed;inset:0;z-index:100;background:#000;display:flex;flex-direction:column}
+#camOv[hidden]{display:none}
+#camOv video{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}
+#camOv .cbar{display:flex;gap:10px;padding:14px;background:#000}
+#camOv .cbar button{flex:1;min-height:56px;border:0;border-radius:10px;font-size:1.05rem;font-weight:600;font-family:inherit;cursor:pointer;background:#333;color:#fff}
+#camOv .cbar button.go{background:var(--kraft)}
 .photo strong{font-size:1rem;font-weight:500}
 .photo span{color:var(--muted);font-size:.9rem}
 .photo img{max-width:100%;max-height:260px;border-radius:6px;display:block}
@@ -139,7 +146,8 @@ dialog .bar{display:flex;justify-content:space-between;align-items:center;gap:10
       <div class="photo" id="photoBox">
         <strong id="photoMsg">Fotografe o protocolo inteiro, com boa luz</strong>
         <div class="pbtns">
-          <label class="pbtn">Tirar foto<input type="file" id="fotoCam" accept="image/*" capture="environment"></label>
+          <button type="button" class="pbtn" id="btnCam">Tirar foto</button>
+          <input type="file" id="fotoCam" accept="image/*" capture="environment" hidden>
           <label class="pbtn alt">Escolher da galeria<input type="file" id="fotoGal" accept="image/*"></label>
         </div>
       </div>
@@ -160,6 +168,10 @@ dialog .bar{display:flex;justify-content:space-between;align-items:center;gap:10
   </section>
 </div>
 
+<div id="camOv" hidden role="dialog" aria-label="Câmera">
+  <video id="camVid" autoplay playsinline muted></video>
+  <div class="cbar"><button type="button" id="camCancel">Cancelar</button><button type="button" class="go" id="camShot">Capturar</button></div>
+</div>
 <script>
 const $ = s => document.querySelector(s);
 const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
@@ -286,7 +298,6 @@ $('#produtor').addEventListener('blur', () => setTimeout(() => salvarRascunho(),
     salvarRascunho({ abriuCamera: false });
   }
 })();
-$('#fotoCam').addEventListener('click', () => salvarRascunho({ abriuCamera: true }));
 $('#fotoGal').addEventListener('click', () => salvarRascunho({ abriuCamera: false }));
 
 function setStatus(msg, kind){ const s = $('#status'); s.textContent = msg; s.className = 'status' + (kind ? ' ' + kind : ''); }
@@ -294,12 +305,15 @@ function setStatus(msg, kind){ const s = $('#status'); s.textContent = msg; s.cl
 let previewURL = null;
 async function receberFoto(e){
   const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  await receberArquivo(file);
+}
+async function receberArquivo(file){
   salvarRascunho({ abriuCamera: false });
   if(!file) return;
   const box = $('#photoBox');
   $('#photoMsg').textContent = 'Preparando a foto…';
   fotoBlob = await comprimir(file);
-  e.target.value = '';
   box.querySelectorAll('img').forEach(i => i.remove());
   if(previewURL) URL.revokeObjectURL(previewURL);
   previewURL = URL.createObjectURL(fotoBlob);
@@ -313,6 +327,37 @@ async function receberFoto(e){
   $('#formError').textContent = '';
 }
 $('#fotoCam').addEventListener('change', receberFoto);
+
+// Câmera dentro da própria página: não sai do navegador, então o Android não descarta a página
+let camStream = null;
+function fecharCamera(){
+  if(camStream){ camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  $('#camVid').srcObject = null; $('#camOv').hidden = true;
+}
+function cameraDoSistema(){ salvarRascunho({ abriuCamera: true }); $('#fotoCam').click(); }
+$('#btnCam').addEventListener('click', async () => {
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return cameraDoSistema();
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 } }, audio: false });
+    const v = $('#camVid'); v.srcObject = camStream; $('#camOv').hidden = false;
+    await v.play().catch(() => {});
+  }catch(err){
+    fecharCamera();
+    if(err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')){
+      $('#avisoFoto').textContent = 'A câmera está bloqueada para este site. Libere a permissão ou use "Escolher da galeria".';
+      $('#avisoFoto').className = 'hint warn';
+    } else cameraDoSistema();
+  }
+});
+$('#camCancel').addEventListener('click', fecharCamera);
+$('#camShot').addEventListener('click', () => {
+  const v = $('#camVid');
+  if(!v.videoWidth) return;
+  const c = document.createElement('canvas');
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0);
+  c.toBlob(b => { fecharCamera(); if(b) receberArquivo(b); }, 'image/jpeg', 0.9);
+});
 $('#fotoGal').addEventListener('change', receberFoto);
 
 async function comprimir(file){
@@ -409,8 +454,11 @@ $('#form').addEventListener('submit', async e => {
     lista.unshift({ algodoeira, produtor, data, hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) });
     gravarLocal(lista); renderLocal();
     setStatus(`Recebimento salvo: ${algodoeira} · ${produtor} · ${fmt(data)}`, 'ok');
-    $('#produtor').value = ''; $('#avisoProd').textContent = '';
-    salvarRascunho({ abriuCamera: false });
+    $('#algodoeira').value = ''; $('#produtor').value = '';
+    $('#avisoAlg').textContent = ''; $('#avisoAlg').className = 'hint';
+    $('#avisoProd').textContent = ''; $('#avisoProd').className = 'hint';
+    $('#data').value = hoje();
+    limparRascunho();
     resetFoto();
     atualizarContador();
   }catch(err){
