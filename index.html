@@ -57,9 +57,12 @@ input:focus-visible,button:focus-visible,.photo:focus-within{outline:3px solid v
 .opts mark{background:none;color:var(--stamp);font-weight:600}
 .hint.warn{color:var(--kraft)}
 @media (max-width:480px){.row{grid-template-columns:1fr}}
-.photo{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;min-height:190px;border:2px dashed var(--kraft);border-radius:10px;background:var(--kraft-soft);cursor:pointer;text-align:center;padding:16px;overflow:hidden}
-.photo input{position:absolute;inset:0;opacity:0;cursor:pointer}
-.photo strong{font-size:1.05rem}
+.photo{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;min-height:150px;border:2px dashed var(--kraft);border-radius:10px;background:var(--kraft-soft);cursor:pointer;text-align:center;padding:16px;overflow:hidden}
+.pbtns{display:flex;gap:8px;width:100%;flex-wrap:wrap}
+.pbtn{position:relative;flex:1 1 140px;display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:10px;background:var(--kraft);color:#fff;font-weight:600;cursor:pointer;margin:0;font-size:1rem}
+.pbtn.alt{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.pbtn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.photo strong{font-size:1rem;font-weight:500}
 .photo span{color:var(--muted);font-size:.9rem}
 .photo img{max-width:100%;max-height:260px;border-radius:6px;display:block}
 .photo.has img{margin-bottom:4px}
@@ -133,11 +136,14 @@ dialog .bar{display:flex;justify-content:space-between;align-items:center;gap:10
     </div>
     <div class="field">
       <span id="fotoLabel" style="display:block;font-weight:600;margin-bottom:6px">Foto do protocolo</span>
-      <label class="photo" id="photoBox" aria-labelledby="fotoLabel">
-        <input type="file" id="foto" accept="image/*" capture="environment" aria-labelledby="fotoLabel">
-        <strong>Tirar foto ou escolher imagem</strong>
-        <span>Fotografe o protocolo inteiro, com boa luz</span>
-      </label>
+      <div class="photo" id="photoBox">
+        <strong id="photoMsg">Fotografe o protocolo inteiro, com boa luz</strong>
+        <div class="pbtns">
+          <label class="pbtn">Tirar foto<input type="file" id="fotoCam" accept="image/*" capture="environment"></label>
+          <label class="pbtn alt">Escolher da galeria<input type="file" id="fotoGal" accept="image/*"></label>
+        </div>
+      </div>
+      <div class="hint" id="avisoFoto"></div>
     </div>
     <div class="error" id="formError" role="alert"></div>
     <div class="acao">
@@ -258,40 +264,84 @@ const H = { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY };
 let fotoBlob = null;
 $('#data').value = hoje();
 
+// Rascunho: se o Android recarregar a página ao abrir a câmera, os campos voltam preenchidos
+const RASC = 'recebimento-malas-rascunho';
+function salvarRascunho(extra){
+  try{ localStorage.setItem(RASC, JSON.stringify({ algodoeira: $('#algodoeira').value, produtor: $('#produtor').value, data: $('#data').value, t: Date.now(), ...extra })); }catch{}
+}
+function lerRascunho(){ try{ return JSON.parse(localStorage.getItem(RASC) || 'null'); }catch{ return null; } }
+function limparRascunho(){ try{ localStorage.removeItem(RASC); }catch{} }
+['algodoeira','produtor','data'].forEach(id => $('#' + id).addEventListener('input', () => salvarRascunho()));
+$('#algodoeira').addEventListener('blur', () => setTimeout(() => salvarRascunho(), 200));
+$('#produtor').addEventListener('blur', () => setTimeout(() => salvarRascunho(), 200));
+(function restaurar(){
+  const r = lerRascunho();
+  if(!r || Date.now() - r.t > 6 * 3600 * 1000) return;
+  if(r.algodoeira) $('#algodoeira').value = r.algodoeira;
+  if(r.produtor) $('#produtor').value = r.produtor;
+  if(r.data) $('#data').value = r.data;
+  if(r.abriuCamera){
+    $('#avisoFoto').textContent = 'A foto não voltou da câmera. Toque em "Escolher da galeria" e selecione a foto que você acabou de tirar.';
+    $('#avisoFoto').className = 'hint warn';
+    salvarRascunho({ abriuCamera: false });
+  }
+})();
+$('#fotoCam').addEventListener('click', () => salvarRascunho({ abriuCamera: true }));
+$('#fotoGal').addEventListener('click', () => salvarRascunho({ abriuCamera: false }));
+
 function setStatus(msg, kind){ const s = $('#status'); s.textContent = msg; s.className = 'status' + (kind ? ' ' + kind : ''); }
 
-$('#foto').addEventListener('change', async e => {
+let previewURL = null;
+async function receberFoto(e){
   const file = e.target.files && e.target.files[0];
+  salvarRascunho({ abriuCamera: false });
+  if(!file) return;
   const box = $('#photoBox');
-  if(!file){ fotoBlob = null; return; }
-  box.querySelectorAll('img').forEach(i => i.remove());
+  $('#photoMsg').textContent = 'Preparando a foto…';
   fotoBlob = await comprimir(file);
+  e.target.value = '';
+  box.querySelectorAll('img').forEach(i => i.remove());
+  if(previewURL) URL.revokeObjectURL(previewURL);
+  previewURL = URL.createObjectURL(fotoBlob);
   const img = document.createElement('img');
   img.alt = 'Pré-visualização do protocolo';
-  img.src = URL.createObjectURL(fotoBlob);
+  img.src = previewURL;
   box.prepend(img);
   box.classList.add('has');
-  box.querySelector('strong').textContent = 'Trocar foto';
+  $('#photoMsg').textContent = 'Foto pronta. Se precisar, tire outra.';
+  $('#avisoFoto').textContent = ''; $('#avisoFoto').className = 'hint';
   $('#formError').textContent = '';
-});
+}
+$('#fotoCam').addEventListener('change', receberFoto);
+$('#fotoGal').addEventListener('change', receberFoto);
 
 async function comprimir(file){
   try{
-    const bmp = await createImageBitmap(file);
-    const max = 1800, s = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const max = 1800;
+    let bmp = await createImageBitmap(file);
+    if(Math.max(bmp.width, bmp.height) > max){
+      const s = max / Math.max(bmp.width, bmp.height);
+      const w = Math.round(bmp.width * s), h = Math.round(bmp.height * s);
+      bmp.close && bmp.close();
+      bmp = await createImageBitmap(file, { resizeWidth: w, resizeHeight: h, resizeQuality: 'medium' });
+    }
     const c = document.createElement('canvas');
-    c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
-    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-    return await new Promise(r => c.toBlob(b => r(b || file), 'image/jpeg', 0.82));
+    c.width = bmp.width; c.height = bmp.height;
+    c.getContext('2d').drawImage(bmp, 0, 0);
+    bmp.close && bmp.close();
+    const out = await new Promise(r => c.toBlob(b => r(b), 'image/jpeg', 0.82));
+    c.width = c.height = 0;
+    return out || file;
   }catch{ return file; }
 }
 
 function resetFoto(){
-  fotoBlob = null; $('#foto').value = '';
+  fotoBlob = null; $('#fotoCam').value = ''; $('#fotoGal').value = '';
   const box = $('#photoBox');
   box.querySelectorAll('img').forEach(i => i.remove());
+  if(previewURL){ URL.revokeObjectURL(previewURL); previewURL = null; }
   box.classList.remove('has');
-  box.querySelector('strong').textContent = 'Tirar foto ou escolher imagem';
+  $('#photoMsg').textContent = 'Fotografe o protocolo inteiro, com boa luz';
 }
 
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
@@ -360,6 +410,7 @@ $('#form').addEventListener('submit', async e => {
     gravarLocal(lista); renderLocal();
     setStatus(`Recebimento salvo: ${algodoeira} · ${produtor} · ${fmt(data)}`, 'ok');
     $('#produtor').value = ''; $('#avisoProd').textContent = '';
+    salvarRascunho({ abriuCamera: false });
     resetFoto();
     atualizarContador();
   }catch(err){
